@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settlement reconciliation</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#17212b;--mute:#667585;--line:#dde3e9;--brand:#1d4e89;
+--red:#c62828;--redbg:#fdecec;--yel:#a86a00;--yelbg:#fff4d6;--grn:#1b7a45;--grnbg:#e4f5ea;--blu:#1d4e89;--blubg:#e6eef8;--gry:#5d6b79;--grybg:#eceff2}
+@media (prefers-color-scheme:dark){:root{--bg:#10161d;--card:#18212b;--ink:#e6ebf0;--mute:#93a1af;--line:#2a3541;--brand:#6aa6e8;
+--red:#ff8a80;--redbg:#3a1d1d;--yel:#f2c14e;--yelbg:#3a2f12;--grn:#6fd09a;--grnbg:#143024;--blu:#8dbcf2;--blubg:#17283d;--gry:#a4b0bc;--grybg:#222c37}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.bar{max-width:1200px;margin:auto;padding:12px 20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.bar h1{font-size:17px;margin:0;font-weight:600}
+nav{display:flex;gap:4px;flex:1}
+nav a{padding:6px 12px;border-radius:6px;color:var(--mute);text-decoration:none;font-weight:500}
+nav a.on{background:var(--blubg);color:var(--brand)}
+nav a:focus-visible,button:focus-visible,select:focus-visible,tr:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+main{max-width:1200px;margin:auto;padding:20px}
+button,select{font:inherit;padding:7px 12px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);cursor:pointer}
+button.pri{background:var(--brand);border-color:var(--brand);color:var(--bg);font-weight:500}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px}
+.grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1.1fr 1fr}
+@media(max-width:900px){.g4{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+.kpi small{color:var(--mute);display:block}.kpi b{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
+   .kpi b small{font-size:14px;font-weight:400}
+   .kpi.crit{border-left:4px solid var(--red)}.kpi.warn{border-left:4px solid var(--yel)}
+h2{font-size:15px;margin:0 0 10px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mute);font-weight:500;font-size:13px}td.n,th.n{text-align:right}
+.wrap{overflow-x:auto}
+tbody tr.row{cursor:pointer}tbody tr.row:hover{background:var(--bg)}
+tr.CRITICAL td:first-child{box-shadow:inset 4px 0 var(--red)}tr.WARNING td:first-child{box-shadow:inset 4px 0 var(--yel)}
+.b{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.PENDING,.NOT_APPLICABLE{background:var(--grybg);color:var(--gry)}.PARTIAL,.WARNING{background:var(--yelbg);color:var(--yel)}
+.FULLY_SETTLED{background:var(--grnbg);color:var(--grn)}.OVER_SETTLED,.CRITICAL{background:var(--redbg);color:var(--red)}.REFUNDED{background:var(--blubg);color:var(--blu)}
+.mono{font-family:"IBM Plex Mono",monospace;font-size:13px}
+.msg{padding:10px 14px;border-radius:6px;margin-bottom:14px;background:var(--blubg);color:var(--blu)}.msg.err{background:var(--redbg);color:var(--red)}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.issue{border-left:4px solid var(--yel);background:var(--yelbg);padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:8px}
+.issue.CRITICAL{border-color:var(--red);background:var(--redbg)}.issue p{margin:2px 0}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0}dt{color:var(--mute)}dd{margin:0}
+.tl{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--line)}
+.tl li{position:relative;padding:0 0 16px 14px}.tl li:before{content:"";position:absolute;left:-25px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--grn);border:2px solid var(--card)}
+.tl li.CREDIT:before{background:var(--blu)}.tl li.start:before{background:var(--gry)}.tl small{color:var(--mute)}
+a.back{color:var(--brand);text-decoration:none;display:inline-block;margin-bottom:12px}
+</style>
+</head>
+<body>
+<header><div class="bar"><h1>Settlement reconciliation</h1>
+<nav><a href="#/" id="n-dash">Dashboard</a><a href="#/transactions" id="n-tx">Transactions</a></nav>
+<input type="file" id="file" accept=".csv" hidden>
+<button id="up">Upload CSV</button><button class="pri" id="run">Reconcile default report</button></div></header>
+<main id="app" aria-live="polite"></main>
+<script>
+const app=document.getElementById('app');let charts=[];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const label=s=>esc(s).replace(/_/g,' ').toLowerCase().replace(/^./,c=>c.toUpperCase());
+const badge=s=>`<span class="b ${esc(s)}">${label(s)}</span>`;
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+async function api(path,opts){const r=await fetch(path,opts);const j=await r.json();if(!r.ok)throw new Error(j.error||r.statusText);return j}
+const note=(t,err)=>`<div class="msg ${err?'err':''}" role="${err?'alert':'status'}">${t}</div>`;
+let banner='';
+
+async function reconcile(body){
+  try{const r=await api('/reconcile',{method:'POST',body,headers:{'Content-Type':'text/csv'}});
+    banner=note(`Reconciled ${r.inserted} new settlements (${r.matched_by_lifecycle_id} by lifecycle ID, ${r.matched_by_fallback} by account, merchant and date). `+
+      `${r.unmatched.length} unmatched${r.unmatched.length?' ('+r.unmatched.map(u=>esc(u.settlement_id)).join(', ')+')':''}, `+
+      `${r.duplicates.length} already processed, ${r.errors.length} invalid rows${r.errors.length?': '+r.errors.map(e=>esc((e.settlement_id||'line '+e.line)+' - '+e.error)).join('; '):''}.`)
+  }catch(e){banner=note('Reconcile failed: '+esc(e.message),true)}
+  route()}
+document.getElementById('run').onclick=()=>reconcile('');
+document.getElementById('up').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').onchange=async e=>{const f=e.target.files[0];if(f){await reconcile(await f.text());e.target.value=''}};
+
+async function dashboard(){
+  const s=await api('/dashboard/summary');const st=s.by_status;
+  const kpi=(l,v,c='')=>`<div class="panel kpi ${c}"><small>${l}</small><b>${v}</b></div>`;
+  app.innerHTML=banner+`<div class="grid g4">
+   ${kpi('Transactions',s.total_transactions)}${kpi('Settlements processed',s.total_settlements+(s.unmatched_settlements?` <small>(${s.unmatched_settlements} unmatched)</small>`:''))}
+   ${kpi('Critical issues',s.critical_issues,'crit')}${kpi('Warnings',s.warnings,'warn')}
+   ${kpi('Outstanding amount',money(s.outstanding_amount))}${kpi('Settlement rate',s.settlement_rate==null?'-':(s.settlement_rate*100).toFixed(1)+'%')}
+   ${kpi('Avg days to settle',s.avg_days_to_settle??'-')}${kpi('As of',s.as_of)}</div>
+   <div class="grid g2" style="margin-top:14px"><div class="panel"><h2>Settlement status</h2><div style="height:260px"><canvas id="c1"></canvas></div></div>
+   <div class="panel"><h2>Issues</h2><div style="height:260px"><canvas id="c2"></canvas></div></div></div>
+   <div class="panel" style="margin-top:14px"><h2>Status breakdown</h2><div class="wrap"><table><tbody>${
+    Object.entries(st).map(([k,v])=>`<tr class="row" tabindex="0" onclick="location.hash='#/transactions?status=${k}'"><td>${badge(k)}</td><td class="n">${v}</td></tr>`).join('')}</tbody></table></div></div>`;
+  banner='';charts.forEach(c=>c.destroy());
+  const col={PENDING:css('--gry'),PARTIAL:css('--yel'),FULLY_SETTLED:css('--grn'),OVER_SETTLED:css('--red'),REFUNDED:css('--blu'),NOT_APPLICABLE:css('--line')};
+  charts=[new Chart('c1',{type:'doughnut',data:{labels:Object.keys(st).map(k=>k.replace(/_/g,' ')),datasets:[{data:Object.values(st),backgroundColor:Object.keys(st).map(k=>col[k]),borderColor:css('--card')}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:css('--ink')}}}}}),
+   new Chart('c2',{type:'bar',data:{labels:['Critical','Warning','No issue'],datasets:[{data:[s.critical_issues,s.warnings,s.total_transactions-s.critical_issues-s.warnings],backgroundColor:[css('--red'),css('--yel'),css('--grn')]}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:css('--ink')}},y:{beginAtZero:true,ticks:{precision:0,color:css('--ink')}}}}})];
+}
+
+async function list(query){
+  const status=new URLSearchParams(query).get('status')||'';
+  const rows=await api('/transactions'+(status?'?status='+encodeURIComponent(status):''));
+  const opts=['','PENDING','PARTIAL','FULLY_SETTLED','OVER_SETTLED','REFUNDED','NOT_APPLICABLE'];
+  app.innerHTML=banner+`<div class="toolbar"><label>Settlement status <select id="f">${opts.map(o=>`<option value="${o}" ${o===status?'selected':''}>${o?label(o):'All'}</option>`).join('')}</select></label><span style="color:var(--mute)">${rows.length} transactions</span></div>
+  <div class="panel wrap"><table><thead><tr><th>Transaction</th><th>Date</th><th>Merchant</th><th class="n">Amount</th><th>Settlement status</th><th class="n">Settled</th><th>Issue</th></tr></thead><tbody>${
+  rows.map(t=>`<tr class="row ${t.issue_flag||''}" tabindex="0" data-id="${esc(t.transaction_id)}"><td class="mono">${esc(t.transaction_id)}</td><td>${esc(t.transaction_date)}</td><td>${esc(t.merchant_name)}</td>
+   <td class="n">${money(t.transaction_amount)}</td><td>${badge(t.settlement_status)}</td><td class="n">${money(t.total_settled_amount)}</td><td>${t.issue_flag?badge(t.issue_flag):'-'}</td></tr>`).join('')||'<tr><td colspan="7">No transactions match this filter.</td></tr>'}</tbody></table></div>`;
+  banner='';
+  document.getElementById('f').onchange=e=>location.hash='#/transactions'+(e.target.value?'?status='+e.target.value:'');
+  app.querySelectorAll('tr.row').forEach(r=>{const go=()=>location.hash='#/transactions/'+r.dataset.id;r.onclick=go;r.onkeydown=e=>e.key==='Enter'&&go()});
+}
+
+async function detail(id){
+  const t=await api('/transactions/'+encodeURIComponent(id));let net=0;
+  const events=t.settlements.map(s=>{net+=(s.settlement_type==='DEBIT'?1:-1)*s.settlement_amount;
+    return `<li class="${s.settlement_type}"><b>${s.settlement_type==='DEBIT'?'+':'-'}${money(s.settlement_amount)}</b> ${label(s.settlement_type)} <small>${esc(s.settlement_date)} - ${esc(s.settlement_id)} - net ${money(net)} of ${money(t.transaction_amount)}</small></li>`}).join('');
+  app.innerHTML=`<a class="back" href="#/transactions">Back to transactions</a>
+  <div class="grid g2"><div class="panel"><h2>${esc(t.transaction_id)} ${badge(t.settlement_status)} ${t.issue_flag?badge(t.issue_flag):''}</h2><dl>
+   <dt>Merchant</dt><dd>${esc(t.merchant_name)}</dd><dt>Account</dt><dd>${esc(t.account_id)}</dd><dt>Lifecycle ID</dt><dd>${esc(t.lifecycle_id)}</dd>
+   <dt>Date</dt><dd>${esc(t.transaction_date)}</dd><dt>Amount</dt><dd>${money(t.transaction_amount)} ${esc(t.currency)}</dd><dt>Transaction status</dt><dd>${label(t.status)}</dd>
+   <dt>Net settled</dt><dd>${money(t.total_settled_amount)}</dd><dt>Last settlement</dt><dd>${esc(t.last_settlement_date)||'None yet'}</dd></dl></div>
+  <div class="panel"><h2>Issues and recommendations</h2>${t.issues.map(i=>`<div class="issue ${i.severity}"><p><b>${label(i.severity)}:</b> ${esc(i.message)}</p><p>${esc(i.recommendation)}</p></div>`).join('')||'<p style="color:var(--grn)">No issues detected.</p>'}</div></div>
+  <div class="grid g2" style="margin-top:14px"><div class="panel wrap"><h2>Settlement history</h2><table><thead><tr><th>ID</th><th>Date</th><th>Type</th><th class="n">Amount</th></tr></thead><tbody>${
+   t.settlements.map(s=>`<tr><td class="mono">${esc(s.settlement_id)}</td><td>${esc(s.settlement_date)}</td><td>${label(s.settlement_type)}</td><td class="n">${money(s.settlement_amount)}</td></tr>`).join('')||'<tr><td colspan="4">No settlements yet.</td></tr>'}</tbody></table></div>
+  <div class="panel"><h2>Settlement timeline</h2><ul class="tl"><li class="start"><b>${money(t.transaction_amount)}</b> transaction <small>${esc(t.transaction_date)}</small></li>${events||'<li class="start"><small>Waiting for settlement</small></li>'}</ul></div></div>`;
+}
+
+async function route(){
+  charts.forEach(c=>c.destroy());charts=[];
+  const [path,query]=(location.hash.slice(1)||'/').split('?');
+  document.getElementById('n-dash').className=path==='/'?'on':'';document.getElementById('n-tx').className=path.startsWith('/transactions')?'on':'';
+  try{if(path==='/')await dashboard();else if(path==='/transactions')await list(query);else if(path.startsWith('/transactions/'))await detail(decodeURIComponent(path.split('/')[2]));else app.innerHTML=note('Page not found.',true)}
+  catch(e){app.innerHTML=note('Could not load data: '+esc(e.message),true)}
+}
+addEventListener('hashchange',route);route();
+</script>
+</body>
+</html>
